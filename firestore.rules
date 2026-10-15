@@ -1,0 +1,186 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserRole() {
+      return request.auth.token.role;
+    }
+
+    function isPlatformAdmin() {
+      return isAuthenticated() && (getUserRole() == 'admin' || request.auth.token.admin == true);
+    }
+
+    function isOfficer() {
+      return isAuthenticated() && (getUserRole() == 'officer' || isPlatformAdmin());
+    }
+
+    function isAuditor() {
+      return isAuthenticated() && (getUserRole() == 'auditor' || isOfficer());
+    }
+
+    function isAgencyMember(orgId) {
+      return isAuthenticated() && (
+        isOfficer() ||
+        (request.auth.token.organizationId == orgId)
+      );
+    }
+
+    function isProjectMember(projectId) {
+      return isAuthenticated() && (
+        isOfficer() ||
+        exists(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid))
+      );
+    }
+
+    // Public projects - Anonymous read allowed for published summaries
+    match /publicProjects/{projectId} {
+      allow read: if true;
+      allow write: if isOfficer(); // Only officers or backend publication workflow can write
+    }
+
+    match /publicPortfolioSummaries/{summaryId} {
+      allow read: if true;
+      allow write: if isOfficer();
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isOfficer());
+      allow write: if isPlatformAdmin(); // Self-escalation blocked
+    }
+
+    // Organizations
+    match /organizations/{orgId} {
+      allow read: if isAuthenticated();
+      allow write: if isPlatformAdmin();
+    }
+
+    // Projects collection and subcollections
+    match /projects/{projectId} {
+      allow read: if isAuthenticated() && (
+        isOfficer() ||
+        resource.data.organizationId == request.auth.token.organizationId ||
+        isProjectMember(projectId)
+      );
+      allow create: if isAuthenticated() && (
+        isOfficer() || 
+        getUserRole() == 'agency_manager'
+      );
+      allow update: if isAuthenticated() && (
+        isOfficer() ||
+        (getUserRole() == 'agency_manager' && resource.data.organizationId == request.auth.token.organizationId)
+      );
+      allow delete: if isPlatformAdmin();
+
+      // Project members
+      match /members/{memberId} {
+        allow read: if isProjectMember(projectId);
+        allow write: if isOfficer() || isPlatformAdmin();
+      }
+
+      // Baselines - immutable after approval, only officers or managers
+      match /baselines/{baselineId} {
+        allow read: if isProjectMember(projectId);
+        allow create: if isOfficer() || getUserRole() == 'agency_manager';
+        allow update, delete: if false; // Baselines are strictly versioned, not edited directly
+      }
+
+      // Milestones
+      match /milestones/{milestoneId} {
+        allow read: if isProjectMember(projectId);
+        allow write: if isOfficer() || getUserRole() == 'agency_manager';
+      }
+
+      // Observations
+      match /observations/{observationId} {
+        allow read: if isProjectMember(projectId);
+        allow create: if isProjectMember(projectId) && (getUserRole() == 'agency_manager' || getUserRole() == 'field_contributor');
+        allow update: if isProjectMember(projectId) && (
+          // Field/Agency can update drafts
+          (resource.data.approvalStatus == 'draft' && request.resource.data.approvalStatus in ['draft', 'submitted']) ||
+          // Officers can approve/return
+          isOfficer()
+        );
+        allow delete: if false;
+      }
+
+      // Evidence files records
+      match /evidence/{evidenceId} {
+        allow read: if isProjectMember(projectId);
+        allow create: if isProjectMember(projectId);
+        allow update: if isOfficer(); // Review status updates
+        allow delete: if false;
+      }
+
+      // Assessments - Client writes BLOCKED completely! Generated exclusively by backend server / ML workflow
+      match /assessments/{assessmentId} {
+        allow read: if isProjectMember(projectId);
+        allow write: if false; 
+      }
+
+      // Interventions - Enforced state machine
+      match /interventions/{interventionId} {
+        allow read: if isProjectMember(projectId);
+        allow create: if isOfficer(); // Recommendations created or approved by officer
+        allow update: if isAuthenticated() && (
+          isOfficer() ||
+          (resource.data.ownerUid == request.auth.uid) // Assigned owner can submit completion evidence
+        );
+        allow delete: if isPlatformAdmin();
+      }
+
+      // Dependencies
+      match /dependencies/{dependencyId} {
+        allow read: if isProjectMember(projectId);
+        allow write: if isOfficer() || getUserRole() == 'agency_manager';
+      }
+    }
+
+    // Import jobs
+    match /importJobs/{jobId} {
+      allow read: if isAuthenticated() && (resource.data.createdBy == request.auth.uid || isOfficer());
+      allow create: if isAuthenticated() && getUserRole() in ['agency_manager', 'officer', 'admin'];
+      allow update: if isAuthenticated() && (resource.data.createdBy == request.auth.uid || isOfficer());
+    }
+
+    // Assessment jobs
+    match /assessmentJobs/{jobId} {
+      allow read: if isAuthenticated();
+      allow write: if isOfficer();
+    }
+
+    // Alerts
+    match /alerts/{alertId} {
+      allow read: if isAuthenticated() && (resource.data.recipientUid == request.auth.uid || isOfficer());
+      allow update: if isAuthenticated() && resource.data.recipientUid == request.auth.uid; // Marking as read
+      allow create, delete: if isOfficer() || isPlatformAdmin();
+    }
+
+    // Audit events - Client writes strictly BLOCKED
+    match /auditEvents/{eventId} {
+      allow read: if isAuditor() || isPlatformAdmin();
+      allow write: if false; // Written only by backend Admin SDK
+    }
+
+    // Model versions and Risk policies
+    match /modelVersions/{versionId} {
+      allow read: if isAuthenticated();
+      allow write: if isPlatformAdmin();
+    }
+
+    match /riskPolicies/{policyId} {
+      allow read: if isAuthenticated();
+      allow write: if isPlatformAdmin();
+    }
+
+    // Default deny all other paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

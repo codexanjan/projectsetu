@@ -1,0 +1,19 @@
+{
+  "model_version": "v1.2.0-xgb",
+  "is_synthetic": true,
+  "train_samples": 1875,
+  "test_samples": 627,
+  "classification": {
+    "model_type": "CalibratedGradientBoostingClassifier",
+    "roc_auc": 0.8037,
+    "pr_auc": 0.8172,
+    "brier_score": 0.2001,
+    "baseline_logistic_roc_auc": 0.8253
+  },
+  "regression": {
+    "model_type": "GradientBoostingRegressor",
+    "mae_days": 158.81,
+    "median_absolute_error_days": 98.39,
+    "baseline_ridge_mae_days": 152.55
+  }
+}

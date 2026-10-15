@@ -1,0 +1,46 @@
+{
+  "model_version": "v1.2.0-xgb",
+  "policy_version": "v1.0.0-mospi",
+  "feature_columns": [
+    "elapsed_ratio",
+    "physical_progress_pct",
+    "planned_progress_pct",
+    "progress_gap",
+    "expenditure_ratio",
+    "has_blockers",
+    "evidence_count",
+    "original_cost_cr",
+    "original_duration_months"
+  ],
+  "feature_importances": {
+    "elapsed_ratio": 0.0011,
+    "physical_progress_pct": 0.1144,
+    "planned_progress_pct": 0.0002,
+    "progress_gap": 0.2387,
+    "expenditure_ratio": 0.0042,
+    "has_blockers": 0.0,
+    "evidence_count": 0.0001,
+    "original_cost_cr": 0.1857,
+    "original_duration_months": 0.4556
+  },
+  "metrics": {
+    "model_version": "v1.2.0-xgb",
+    "is_synthetic": true,
+    "train_samples": 1875,
+    "test_samples": 627,
+    "classification": {
+      "model_type": "CalibratedGradientBoostingClassifier",
+      "roc_auc": 0.8037,
+      "pr_auc": 0.8172,
+      "brier_score": 0.2001,
+      "baseline_logistic_roc_auc": 0.8253
+    },
+    "regression": {
+      "model_type": "GradientBoostingRegressor",
+      "mae_days": 158.81,
+      "median_absolute_error_days": 98.39,
+      "baseline_ridge_mae_days": 152.55
+    }
+  },
+  "description": "ProjectSetu Infrastructure Risk Model (SIH26103 Synthetic Prototype)"
+}

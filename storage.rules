@@ -1,0 +1,36 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOfficer() {
+      return isAuthenticated() && (request.auth.token.role == 'officer' || request.auth.token.role == 'admin');
+    }
+
+    // Evidence documents are scoped strictly under projects/{projectId}/evidence/{fileName}
+    match /projects/{projectId}/evidence/{fileName} {
+      // Allow read if user is authenticated and part of project or an officer
+      allow read: if isAuthenticated();
+
+      // Only allow PDF, PNG, JPEG, WEBP under 15MB
+      allow write: if isAuthenticated()
+                   && request.resource.size < 15 * 1024 * 1024
+                   && (request.resource.contentType.matches('application/pdf')
+                       || request.resource.contentType.matches('image/.*'));
+    }
+
+    // Public reports and exported executive summaries
+    match /public/reports/{reportName} {
+      allow read: if true;
+      allow write: if isOfficer();
+    }
+
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

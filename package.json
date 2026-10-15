@@ -1,0 +1,32 @@
+{
+  "name": "project-setu-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ProjectSetu — AI-Enabled Integrated Public Project Monitoring Platform (SIH26103 MoSPI)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm --prefix apps/web run dev",
+    "build": "npm --prefix apps/web run build",
+    "preview": "npm --prefix apps/web run preview",
+    "test": "npm --prefix apps/web run test",
+    "lint": "npm --prefix apps/web run lint",
+    "typecheck": "npm --prefix apps/web run typecheck",
+    "emulators:start": "firebase emulators:start",
+    "seed": "npm --prefix apps/web run seed",
+    "test:ml": "python -m unittest services/ml/tests/test_inference.py"
+  },
+  "keywords": [
+    "infrastructure",
+    "monitoring",
+    "mospi",
+    "sih2026",
+    "project-setu",
+    "risk-prediction",
+    "transparency"
+  ],
+  "author": "ProjectSetu Team",
+  "license": "Apache-2.0"
+}
